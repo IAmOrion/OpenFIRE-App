@@ -28,6 +28,11 @@
 
 #define BUTTON_COUNT 14
 
+// Switch positions sent by the board while docked: [sSwitchStateUpd][switches read][switches on],
+// bit 0 rumble, bit 1 solenoid, bit 2 autofire. Not in OpenFIREshared.h (a shared submodule), so
+// defined here; same number as the ESP32 port of the firmware uses for the same report.
+#define OF_SWITCH_STATE_UPD 156
+
 class App_Common
 {
 public:
@@ -183,23 +188,33 @@ public:
         {"X",                           {'x',       39}},
         {"Y",                           {'y',       40}},
         {"Z",                           {'z',       41}},
-        {"F1",                          {0xC2,      42}},
-        {"F2",                          {0xC3,      43}},
-        {"F3",                          {0xC4,      44}},
-        {"F4",                          {0xC5,      45}},
-        {"F5",                          {0xC6,      46}},
-        {"F6",                          {0xC7,      47}},
-        {"F7",                          {0xC8,      48}},
-        {"F8",                          {0xC9,      49}},
-        {"F9",                          {0xCA,      50}},
-        {"F10",                         {0xCB,      51}},
-        {"F11",                         {0xCC,      52}},
-        {"F12",                         {0xCD,      53}}
+        {"0",                           {'0',       42}},
+        {"1",                           {'1',       43}},
+        {"2",                           {'2',       44}},
+        {"3",                           {'3',       45}},
+        {"4",                           {'4',       46}},
+        {"5",                           {'5',       47}},
+        {"6",                           {'6',       48}},
+        {"7",                           {'7',       49}},
+        {"8",                           {'8',       50}},
+        {"9",                           {'9',       51}},
+        {"F1",                          {0xC2,      52}},
+        {"F2",                          {0xC3,      53}},
+        {"F3",                          {0xC4,      54}},
+        {"F4",                          {0xC5,      55}},
+        {"F5",                          {0xC6,      56}},
+        {"F6",                          {0xC7,      57}},
+        {"F7",                          {0xC8,      58}},
+        {"F8",                          {0xC9,      59}},
+        {"F9",                          {0xCA,      60}},
+        {"F10",                         {0xCB,      61}},
+        {"F11",                         {0xCC,      62}},
+        {"F12",                         {0xCD,      63}}
     };
 
     // Used for combobox elements so that the order isn't haphazard
     // TODO: is a map the best way of doing this? hrm
-    static inline char* kbOrderedStrings[54];
+    static inline char* kbOrderedStrings[64];
 
     static const inline QMap<std::string, QVector<int>> mouseMap = {
         {"Left Click",          {0b00000001, 0}},

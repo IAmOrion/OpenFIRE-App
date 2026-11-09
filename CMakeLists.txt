@@ -68,6 +68,8 @@ set(PROJECT_SOURCES
         src/apppreviewer.h
         src/apppreviewer.cpp
         src/apppreviewer.ui
+        src/appguntester.h
+        src/appguntester.cpp
         src/appdebug.h
         src/appdebug.cpp
         src/appdebug.ui

@@ -223,6 +223,15 @@ guiWindow::guiWindow(QWidget *parent)
         else             ui->btnsLayout->addWidget(testLabel.at(i), 0, i);
     }
 
+    // Setup test screen switches: rumble, solenoid, autofire (same order as the board's report bits)
+    for(int i = 0; i < 3; ++i) {
+        switchLabel << new QLabel();
+        switchLabel.at(i)->setAlignment(Qt::AlignCenter);
+        switchLabel.at(i)->setFrameStyle(QFrame::Box | QFrame::Raised);
+        ui->switchesLayout->addWidget(switchLabel.at(i));
+    }
+    SwitchesUpdate();
+
     // Setup analog stick viewer
     ui->analogGfxView->setScene(&analogGfxScene);
     analogGfxScene.setSceneRect(ui->analogGfxView->rect());
@@ -261,6 +270,11 @@ guiWindow::guiWindow(QWidget *parent)
 
 guiWindow::~guiWindow()
 {
+    if(gunTester != nullptr) {
+        disconnect(gunTester, nullptr, this, nullptr);
+        gunTester->close();
+    }
+
     if(ui->comPortSelector->currentIndex() > 0)
         serial.Disconnect();
 
@@ -453,7 +467,49 @@ void guiWindow::LabelsUpdate()
         ui->analogGroup->setEnabled(true),  ui->aPosLabel->clear();
     else ui->analogGroup->setEnabled(false), ui->aPosLabel->setText(tr("Not Connected"));
 
+    SwitchesUpdate();
+
     ui->boardLabel->setText(PrettifyName(App_Common::tinyUSBtable.tinyUSBname));
+}
+
+
+// Rumble/solenoid/autofire switches, from the board's last report (or the saved pins until one arrives)
+void guiWindow::SwitchesUpdate()
+{
+    static const uint8_t switchPins[3] = { OF_Const::rumbleSwitch, OF_Const::solenoidSwitch, OF_Const::autofireSwitch };
+    const QString names[3] = { tr("Rumble"), tr("Solenoid"), tr("Autofire") };
+    const bool connected = ui->comPortSelector->currentIndex() > 0;
+
+    for(int i = 0; i < switchLabel.count(); ++i) {
+        QLabel *label = switchLabel.at(i);
+
+        // The board's report says which switches it reads (mapped to a pin at the last save).
+        // Before a report arrives, go by the saved pins.
+        const bool mapped = connected && (switchesRead >= 0 ? ((switchesRead >> i) & 1)
+                                                             : App_Common::inputsMap_orig.value(switchPins[i], -1) >= 0);
+
+        if(!mapped) {
+            label->setText(names[i] + " (N/C)");
+            label->setStyleSheet("");
+            label->setToolTip("");
+            label->setEnabled(false);
+        } else if(switchesRead < 0) {
+            label->setText(tr("%1: No Data").arg(names[i]));
+            label->setStyleSheet("");
+            label->setToolTip(tr("This gun's firmware doesn't report switch positions to the app."));
+            label->setEnabled(true);
+        } else if((switchesOn >> i) & 1) {
+            label->setText(tr("%1: On").arg(names[i]));
+            label->setStyleSheet("color: black; background-color: #11D00A; font: bold");
+            label->setToolTip("");
+            label->setEnabled(true);
+        } else {
+            label->setText(tr("%1: Off").arg(names[i]));
+            label->setStyleSheet("");
+            label->setToolTip("");
+            label->setEnabled(true);
+        }
+    }
 }
 
 
@@ -581,6 +637,9 @@ void guiWindow::on_comPortSelector_currentTextChanged(const QString &text)
 
     if(ui->comPortSelector->currentIndex() > 0) {
         printf("COM port set to %d\n", ui->comPortSelector->currentIndex());
+
+        // new board session: nothing known about its switches until it reports them
+        switchesRead = -1;
 
         // try to init serial port
         // if returns false, it failed, so just turn the index back to initial.
@@ -1031,6 +1090,9 @@ void guiWindow::on_comPortSelector_currentTextChanged(const QString &text)
 
         if(serial.port.isOpen())
             serial.Disconnect();
+
+        switchesRead = -1;
+        SwitchesUpdate();
 
         // reset temp label stylesheet to neutral
         ui->tmp36Label->setStyleSheet("");
@@ -1885,6 +1947,79 @@ void guiWindow::on_testBtn_clicked()
 }
 
 
+void guiWindow::on_gunTesterBtn_clicked()
+{
+    OpenGunTester();
+}
+
+
+void guiWindow::on_actionOpen_Gun_Tester_triggered()
+{
+    OpenGunTester();
+}
+
+
+void guiWindow::OpenGunTester()
+{
+    if(gunTester != nullptr) {
+        gunTester->raise();
+        gunTester->activateWindow();
+        return;
+    }
+
+    QString note;
+    gunTesterPort.clear();
+    gunTesterTab = -1;
+
+    // A docked gun reports to the app instead of acting as a gun, so undock it for the test
+    // and remember it so it can be docked again afterwards.
+    if(ui->comPortSelector->currentIndex() > 0) {
+        // Docking again re-reads all settings from the gun, which would drop unsaved changes.
+        if(ui->confirmButton->isEnabled()) {
+            ui->statusBar->showMessage(tr("Save or undo your changes before opening the Gun Tester."), 5000);
+            return;
+        }
+
+        gunTesterPort = serial.port.portName();
+        gunTesterTab = ui->tabWidget->currentIndex();
+        // tinyUSBname is a fixed 16-char field, not always null-terminated
+        const QString gunName = QString::fromLatin1(App_Common::tinyUSBtable.tinyUSBname,
+                                                    qstrnlen(App_Common::tinyUSBtable.tinyUSBname, sizeof(App_Common::tinyUSBtable.tinyUSBname)));
+        note = tr("%1 (%2) undocked for testing; it docks again when you close this screen")
+                   .arg(gunName.isEmpty() ? tr("Gun") : gunName, gunTesterPort);
+        ui->comPortSelector->setCurrentIndex(0);
+    }
+
+    gunTester = new AppGunTester(note);
+    connect(gunTester, &AppGunTester::Closed, this, &guiWindow::GunTesterClosed);
+    gunTester->showFullScreen();
+}
+
+
+void guiWindow::GunTesterClosed()
+{
+    gunTester = nullptr;
+    activateWindow();
+
+    // Nothing was docked when the tester opened: leave everything as it is.
+    if(gunTesterPort.isEmpty())
+        return;
+
+    const QString port = gunTesterPort;
+    gunTesterPort.clear();
+
+    for(int i = 1; i < ui->comPortSelector->count(); ++i)
+        if(ui->comPortSelector->itemText(i).startsWith(port + " (")) {
+            ui->comPortSelector->setCurrentIndex(i);
+            if(ui->comPortSelector->currentIndex() == i && gunTesterTab >= 0)
+                ui->tabWidget->setCurrentIndex(gunTesterTab);
+            return;
+        }
+
+    ui->statusBar->showMessage(tr("%1 is no longer connected, so it wasn't docked again.").arg(port), 5000);
+}
+
+
 void guiWindow::on_clearEepromBtn_clicked()
 {
     // Do we really need all this msgbox setup?
@@ -1995,6 +2130,16 @@ void guiWindow::serialPort_readyRead()
                 analogPos->setRect(posX - 8, posY - 8, 16, 16);
                 ui->aPosLabel->setText(QString("%1 , %2").arg(oriPosX).arg(oriPosY));
 
+                break;
+            }
+            case (char)OF_SWITCH_STATE_UPD:
+            {
+                QByteArray state = serial.port.read(2);
+                if(state.size() == 2) {
+                    switchesRead = (uint8_t)state.at(0);
+                    switchesOn = (uint8_t)state.at(1);
+                    SwitchesUpdate();
+                }
                 break;
             }
             case (char)OF_Const::sCurrentProf:

@@ -29,6 +29,7 @@
 #include "appdebug.h"
 #endif
 #include "appserial.h"
+#include "appguntester.h"
 #include "apppreviewer.h"
 
 #include <QMainWindow>
@@ -208,6 +209,12 @@ private slots:
 
     void on_actionAbout_UI_triggered();
 
+    void on_gunTesterBtn_clicked();
+
+    void on_actionOpen_Gun_Tester_triggered();
+
+    void GunTesterClosed();
+
 private:
     Ui::guiWindow *ui;
 
@@ -237,6 +244,14 @@ private:
     /// @brief      Updates boards layout header
     /// @details    Also invokes name prettification
     void LabelsUpdate();
+
+    /// @brief      Updates the rumble/solenoid/autofire switch indicators in the test screen
+    void SwitchesUpdate();
+
+    /// @brief      Opens the full-screen Gun Tester
+    /// @details    Undocks the connected gun first (if any) so every gun is in normal mode,
+    ///             and remembers it so it can be docked again when the tester closes.
+    void OpenGunTester();
 
     /// @brief      Converts system name to display name, provided in OF_Const::boardNames
     QString PrettifyName(QString);
@@ -302,6 +317,19 @@ private:
 
     /// @brief      Test "Buttons" in the test screen representing each button
     QVector<QLabel*> testLabel;
+
+    /// @brief      Switch indicators in the test screen (rumble, solenoid, autofire)
+    QVector<QLabel*> switchLabel;
+
+    /// @brief      Last switch report from the board
+    /// @details    switchesRead is -1 until the board sends one (firmware that doesn't report switches never does)
+    int switchesRead = -1;
+    int switchesOn = 0;
+
+    /// @brief      Full-screen gun tester, and the device to re-dock when it closes
+    AppGunTester *gunTester = nullptr;
+    QString gunTesterPort;
+    int gunTesterTab = -1;
 
     /// @brief      Analog stick graphic view
     QGraphicsScene analogGfxScene;
