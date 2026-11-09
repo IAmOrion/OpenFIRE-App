@@ -1027,7 +1027,7 @@
                         <string/>
                        </property>
                        <property name="whatsThis">
-                        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When &lt;span style=&quot; font-style:italic;&quot;&gt;Solenoid&lt;/span&gt; is enabled and &lt;span style=&quot; font-style:italic;&quot;&gt;Autofire&lt;/span&gt; is disabled, this setting determines the time it takes to hold the trigger after a &lt;span style=&quot; font-style:italic;&quot;&gt;single shot&lt;/span&gt; solenoid activation before transitioning to a sustained fire feedback, in milliseconds.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;Default:&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt; 500 (ms)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When &lt;span style=&quot; font-style:italic;&quot;&gt;Solenoid&lt;/span&gt; is enabled and &lt;span style=&quot; font-style:italic;&quot;&gt;Autofire&lt;/span&gt; is disabled, this setting determines the time it takes to hold the trigger after a &lt;span style=&quot; font-style:italic;&quot;&gt;single shot&lt;/span&gt; solenoid activation before transitioning to a sustained fire feedback, in milliseconds.&lt;/p&gt;&lt;p&gt;Set to &lt;span style=&quot; font-style:italic;&quot;&gt;0&lt;/span&gt; to never repeat: holding the trigger fires once.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;Default:&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt; 500 (ms)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                        </property>
                        <property name="accessibleName">
                         <string>Solenoid Trigger Hold to Autofire Length</string>
@@ -1040,6 +1040,9 @@
                        </property>
                        <property name="suffix">
                         <string> ms</string>
+                       </property>
+                       <property name="specialValueText">
+                        <string>Never repeat</string>
                        </property>
                        <property name="maximum">
                         <number>9999</number>
