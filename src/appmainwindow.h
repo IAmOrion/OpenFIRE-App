@@ -313,6 +313,8 @@ private:
     /// @brief      Objects that makes up the elements of the board view tab
     /// @details    Pinboxes stores the state of each pin to one function
     QVector<QComboBox*> pinBoxes;
+    /// @brief      Index of "Output HIGH" in the pin boxes ("Output LOW" follows), -1 until boxes exist
+    int pinOutputHighIdx = -1;
     QVector<QLabel*> pinLabel;
 
     /// @brief      Test "Buttons" in the test screen representing each button

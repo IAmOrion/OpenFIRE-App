@@ -367,6 +367,15 @@ void guiWindow::BoxesUpdate()
                    i < OF_Const::boardInputsCount)
                     pinBoxes.at(App_Common::inputsMap_orig.value(i))->setCurrentIndex(i+1);
 
+            // fixed outputs as saved on the gun
+            for(int pin = 0; pin < pinBoxes.count() && pin < 32 && pinOutputHighIdx > 0; ++pin) {
+                if(pinBoxes.at(pin)->currentIndex() != OF_Const::btnUnmapped+1) continue;
+                if(App_Common::settingsTable[App_Common::dataOrig][OF_Const::outputHighMask] & (1UL << pin))
+                    pinBoxes.at(pin)->setCurrentIndex(pinOutputHighIdx);
+                else if(App_Common::settingsTable[App_Common::dataOrig][OF_Const::outputLowMask] & (1UL << pin))
+                    pinBoxes.at(pin)->setCurrentIndex(pinOutputHighIdx+1);
+            }
+
         // else, if the board *was using default maps* before switching to custom (no need to re-set pinboxes)
         } else {
             // copy original map, which clears this map (as boards using defaults comes with no actual map instated)
@@ -391,6 +400,10 @@ void guiWindow::BoxesUpdate()
         if(App_Common::OFPresets.boardsPresetsMap.count(App_Common::board.type.constData()))
             for(size_t i = 0; i < pinBoxes.count(); ++i)
                 pinBoxes.at(i)->setCurrentIndex(presetMap->second.at(i)+1);
+
+        // fixed outputs need custom pins
+        App_Common::settingsTable[App_Common::dataCurrent][OF_Const::outputHighMask] = 0;
+        App_Common::settingsTable[App_Common::dataCurrent][OF_Const::outputLowMask] = 0;
 
         return;
     }
@@ -868,6 +881,21 @@ void guiWindow::on_comPortSelector_currentTextChanged(const QString &text)
                 for(auto item : App_Common::OFPresets.boardInputs_sortedStr)
                     pinBoxes.at(i)->addItem(item);
 
+                // fixed outputs, after the functions (stored as bitmasks in settings, so usable on any number of pins)
+                pinOutputHighIdx = pinBoxes.at(i)->count();
+                pinBoxes.at(i)->addItem(tr("Output HIGH (3.3V)"));
+                pinBoxes.at(i)->setItemData(pinOutputHighIdx,
+                                            tr("Holds this pin at 3.3V.\n"
+                                               "For small loads only (a few mA, e.g. one LED with its resistor); "
+                                               "use a transistor or MOSFET for anything bigger."),
+                                            Qt::ToolTipRole);
+                pinBoxes.at(i)->addItem(tr("Output LOW (GND)"));
+                pinBoxes.at(i)->setItemData(pinOutputHighIdx+1,
+                                            tr("Connects this pin to GND, e.g. to switch on an LED wired from 3.3V or 5V "
+                                               "through its resistor. Set the pin back to Unmapped to switch it off (the pin then floats).\n"
+                                               "For small loads only (a few mA); use a transistor or MOSFET for anything bigger."),
+                                            Qt::ToolTipRole);
+
                 // clear out analog options for digital pins
                 // (entrylist is offset by one, as "Unmapped" == -1 in our enum)
                 if(!(pinCapabilityMap->second.at(i) & OF_Const::pinHasADC)) {
@@ -1120,8 +1148,25 @@ void guiWindow::pinBoxes_currentIndexChanged(int index)
     if(ui->presetsBox->currentIndex() > -1)
         ui->presetsBox->setCurrentIndex(-1);
 
+    // any change ends a fixed output on this pin; an output choice then sets its bit again below
+    const int slot = sender()->property("slot").toInt();
+    if(slot < 32) {
+        App_Common::settingsTable[App_Common::dataCurrent][OF_Const::outputHighMask] &= ~(1UL << slot);
+        App_Common::settingsTable[App_Common::dataCurrent][OF_Const::outputLowMask] &= ~(1UL << slot);
+    }
+
+    // fixed output: not a function, so unmap whatever function this pin had
+    if(pinOutputHighIdx > 0 && index >= pinOutputHighIdx) {
+        if(sender()->property("prevMapping").toInt() > OF_Const::btnUnmapped+1) {
+            App_Common::inputsMap[sender()->property("prevMapping").toInt()-1] = OF_Const::btnUnmapped;
+            sender()->setProperty("prevMapping", OF_Const::btnUnmapped+1);
+        }
+        if(slot < 32)
+            App_Common::settingsTable[App_Common::dataCurrent][index == pinOutputHighIdx ? OF_Const::outputHighMask
+                                                                                          : OF_Const::outputLowMask] |= 1UL << slot;
+
     // if it's being set to 0 (unmapped), unmap this pin without question.
-    if(index <= 0) {
+    } else if(index <= 0) {
         if(sender()->property("prevMapping").toInt() > OF_Const::btnUnmapped+1) {
             App_Common::inputsMap[sender()->property("prevMapping").toInt()-1] = OF_Const::btnUnmapped;
             sender()->setProperty("prevMapping", OF_Const::btnUnmapped+1);
