@@ -1295,9 +1295,16 @@ void guiWindow::btnFuncTypeBox_currentIndexChanged(int index)
     if(sender()->property("curType").toInt() != index) {
         sender()->setProperty("curType", index);
         if(index > -1) {
-            QComboBox *btnFuncBoxPtr = &btnFuncBox[sender()->property("slot").toInt()][1][sender()->property("btn").toInt()];
+            const int btn = sender()->property("btn").toInt();
+            const int slot = sender()->property("slot").toInt();
+            QComboBox *btnFuncBoxPtr = &btnFuncBox[slot][1][btn];
+            uint8_t *typePtr = &App_Common::inputFuncTable[App_Common::dataCurrent][btn][slot << 1];
+            uint8_t *codePtr = typePtr + 1;
 
-            App_Common::inputFuncTable[App_Common::dataCurrent][sender()->property("btn").toInt()][sender()->property("slot").toInt() << 1] = index;
+            // the type really changed (not just the boxes being filled in from what's stored)
+            const bool typeChanged = *typePtr != index;
+
+            *typePtr = index;
             btnFuncBoxPtr->blockSignals(true);
             btnFuncBoxPtr->clear();
 
@@ -1318,13 +1325,25 @@ void guiWindow::btnFuncTypeBox_currentIndexChanged(int index)
 
             btnFuncBoxPtr->blockSignals(false);
 
-            // HACK SHACK: very brute-force-y method because I didn't wanna make another redundant af map for this lookup sorz :(
-            if(App_Common::inputFuncTable[App_Common::dataOrig][sender()->property("btn").toInt()][sender()->property("slot").toInt() << 1] == index) {
+            // Show the stored output. When switching back to the type saved on the gun, show the saved
+            // output rather than the code left over from the other type.
+            if(App_Common::inputFuncTable[App_Common::dataOrig][btn][slot << 1] == index) {
+                const uint8_t code = typeChanged ? App_Common::inputFuncTable[App_Common::dataOrig][btn][1 | slot << 1] : *codePtr;
                 for(auto i = App_Common::inputFuncMaps[index]->cbegin(), end = App_Common::inputFuncMaps[index]->cend(); i != end; ++i)
-                    if(i.value().at(0) == App_Common::inputFuncTable[App_Common::dataCurrent][sender()->property("btn").toInt()][1 | sender()->property("slot").toInt() << 1]) {
+                    if(i.value().at(0) == code) {
                         btnFuncBoxPtr->setCurrentIndex(i.value().at(1));
                         break;
                     }
+            }
+
+            // After a type change, store the code of the output now shown. Without this the new type kept
+            // the old type's code while showing its first item: a mouse button switched to Keyboard showed
+            // "Player-relative Start Key" (the first keyboard item, so choosing it changed nothing) but kept
+            // the mouse code, and the gun sent nothing.
+            if(typeChanged) {
+                const std::string shown = btnFuncBoxPtr->currentText().toStdString();
+                if(App_Common::inputFuncMaps[index]->contains(shown))
+                    *codePtr = App_Common::inputFuncMaps[index]->value(shown).at(0);
             }
 
             DiffUpdate();
