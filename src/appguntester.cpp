@@ -183,6 +183,15 @@ QColor AppGunTester::PickColour(const Gun &gun, const QString &pid) const
     return spareColours[guns.size() % (sizeof(spareColours) / sizeof(spareColours[0]))];
 }
 
+int AppGunTester::PlayerNumber(const Gun &gun)
+{
+    static const QRegularExpression rx("\\bP\\s?([1-4])\\b", QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch m = rx.match(gun.label);
+    if(m.hasMatch()) return m.captured(1).toInt();
+    const int pid = gun.pid.toInt(nullptr, 16);
+    return (pid >= 1 && pid <= 4) ? pid : 0;
+}
+
 QString AppGunTester::ShortTag(const Gun &gun)
 {
     static const QRegularExpression rx("\\bP\\s?(\\d)\\b", QRegularExpression::CaseInsensitiveOption);
@@ -421,6 +430,8 @@ AppGunTester::Gun *AppGunTester::Identify(quintptr handle, bool absoluteSeen, bo
                   : m.hasMatch()       ? QString("VID %1 PID %2").arg(vid, pid)
                                        : tr("Absolute mouse");
         gun.order = nextOrder++;
+        gun.pid = pid;
+        gun.player = PlayerNumber(gun);
         gun.colour = PickColour(gun, pid);
         gunIt = guns.insert(key, gun);
         AddLog((quiet ? tr("Found: %1") : tr("Connected: %1")).arg(gun.label));
@@ -430,7 +441,10 @@ AppGunTester::Gun *AppGunTester::Identify(quintptr handle, bool absoluteSeen, bo
     } else if(gunIt->label.startsWith("VID ") || gunIt->label == tr("Absolute mouse")) {
         // An earlier interface had no product string; try this one.
         const QString product = ProductString(name);
-        if(!product.isEmpty()) gunIt->label = product;
+        if(!product.isEmpty()) {
+            gunIt->label = product;
+            gunIt->player = PlayerNumber(gunIt.value());
+        }
     }
 
     gunIt->handles.insert(handle);
@@ -580,9 +594,21 @@ void AppGunTester::paintEvent(QPaintEvent *)
             shown << &gun;
     std::sort(shown.begin(), shown.end(), [](const Gun *a, const Gun *b) { return a->order < b->order; });
 
-    // Panels: two on the top row (left / right), extras stacked below.
-    for(int i = 0; i < shown.size(); ++i)
-        DrawPanel(p, *shown.at(i), i % 2 == 1, i / 2, w, unit);
+    // Panel slots: P1 top left, P2 top right, P3/P4 the row below; guns without a player number
+    // take the next free slot, in the order they were found.
+    QVector<const Gun*> panelSlots(qMax(4, int(shown.size())), nullptr);
+    QList<const Gun*> unplaced;
+    for(const Gun *gun : std::as_const(shown)) {
+        if(gun->player >= 1 && gun->player <= 4 && panelSlots[gun->player-1] == nullptr)
+            panelSlots[gun->player-1] = gun;
+        else unplaced << gun;
+    }
+    for(const Gun *gun : std::as_const(unplaced))
+        for(auto &panelSlot : panelSlots)
+            if(panelSlot == nullptr) { panelSlot = gun; break; }
+    for(int i = 0; i < panelSlots.size(); ++i)
+        if(panelSlots.at(i) != nullptr)
+            DrawPanel(p, *panelSlots.at(i), i % 2 == 1, i / 2, w, unit);
     DrawLog(p, w, h, unit);
 
     const QFont f = PixelFont(unit * 1.15);

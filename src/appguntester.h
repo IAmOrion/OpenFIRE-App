@@ -69,7 +69,9 @@ private:
         QString key;                // VID&PID (shared by all interfaces of one gun)
         QString label;              // product string, or VID/PID
         QColor colour;
-        int order = 0;              // display slot
+        int order = 0;              // order found
+        int player = 0;             // 1-4 from the product name ("... P2") or PID 0001-0004, 0 = unknown
+        QString pid;
         bool connected = true;
         bool seenAbsolute = false;
         bool isOpenFire = false;
@@ -93,6 +95,7 @@ private:
     void ClearCounters();
     QColor PickColour(const Gun &gun, const QString &pid) const;
     static QString ShortTag(const Gun &gun);
+    static int PlayerNumber(const Gun &gun);
 
     void DrawGrid(QPainter &p, int w, int h, qreal unit);
     void DrawCrosshair(QPainter &p, const Gun &gun, int w, int h, qreal unit);
