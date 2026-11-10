@@ -614,6 +614,12 @@ void guiWindow::on_confirmButton_clicked()
                    App_Common::settingsTable[App_Common::dataCurrent],
                    sizeof(App_Common::settingsTable[App_Common::dataCurrent]));
 
+            // button mappings were sent too (upstream never synced these, so a mapping change kept
+            // "Save and Send Settings" lit after saving, until the gun was reconnected)
+            memcpy(App_Common::inputFuncTable[App_Common::dataOrig],
+                   App_Common::inputFuncTable[App_Common::dataCurrent],
+                   sizeof(App_Common::inputFuncTable[App_Common::dataCurrent]));
+
             memcpy(&App_Common::tinyUSBtable_orig,
                    &App_Common::tinyUSBtable,
                    sizeof(App_Common::tinyUSBtable_s));
